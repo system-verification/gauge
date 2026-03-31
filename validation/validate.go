@@ -350,6 +350,10 @@ func (v *SpecValidator) validateStep(s *gauge.Step) error {
 		res := r.GetStepValidateResponse()
 		if !res.GetIsValid() {
 			msg := getMessage(res.GetErrorType().String())
+			// Append the runner's error message if provided by the language implementation.
+			if detail := res.GetErrorMessage(); detail != "" {
+				msg = msg + "\n" + detail
+			}
 			suggestion := res.GetSuggestion()
 			if s.Parent == nil {
 				vErr := NewStepValidationError(s, msg, v.specification.FileName, &res.ErrorType, suggestion)
