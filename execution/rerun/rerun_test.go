@@ -14,6 +14,7 @@ import (
 	"github.com/getgauge/common"
 	"github.com/getgauge/gauge-proto/go/gauge_messages"
 	"github.com/getgauge/gauge/config"
+	"github.com/getgauge/gauge/env"
 	"github.com/getgauge/gauge/execution/result"
 	"github.com/getgauge/gauge/gauge"
 	"github.com/getgauge/gauge/util"
@@ -113,7 +114,7 @@ func (s *MySuite) TestScenarioFailureRefWithScenarioDataTableRow(c *C) {
 
 	ref := scenarioFailureRef("specs/example.spec", sce)
 
-	c.Assert(ref, Equals, "specs/example.spec:5:3")
+	c.Assert(ref, Equals, "specs/example.spec:5:0:3")
 }
 
 func (s *MySuite) TestScenarioFailureRefWithBothDataTableRows(c *C) {
@@ -167,6 +168,42 @@ func (s *MySuite) TestGetFailedItemsUsesFileLineForTableDrivenScenarios(c *C) {
 	c.Assert(failedItems, DeepEquals, []string{spec1Rel + ":13"})
 }
 
+func (s *MySuite) TestScenarioFailureRefDistinguishesSpecRowsForNestedTable(c *C) {
+	scenarioTableRow := *gauge.NewTable([]string{"Color"}, [][]gauge.TableCell{{{Value: "Red", CellType: gauge.Static}}}, 0)
+	sce0 := &gauge.Scenario{
+		Span:                      &gauge.Span{Start: 13},
+		SpecDataTableRowIndex:     0,
+		ScenarioDataTableRow:      scenarioTableRow,
+		ScenarioDataTableRowIndex: 1,
+	}
+	sce1 := &gauge.Scenario{
+		Span:                      &gauge.Span{Start: 13},
+		SpecDataTableRowIndex:     1,
+		ScenarioDataTableRow:      scenarioTableRow,
+		ScenarioDataTableRowIndex: 1,
+	}
+
+	ref0 := scenarioFailureRef("specs/example.spec", sce0)
+	ref1 := scenarioFailureRef("specs/example.spec", sce1)
+
+	c.Assert(ref0, Equals, "specs/example.spec:13:0:1")
+	c.Assert(ref1, Equals, "specs/example.spec:13:1:1")
+	c.Assert(ref0, Not(Equals), ref1)
+}
+
+func (s *MySuite) TestGetFailedItemsDeduplicatesNestedTableScenarios(c *C) {
+	spec1Rel := filepath.Join("specs", "example1.spec")
+	metaData := newFailedMetaData()
+	metaData.failedItemsMap[spec1Rel] = map[string]bool{
+		spec1Rel + ":13:0:1": true,
+		spec1Rel + ":13:1:1": true,
+	}
+
+	failedItems := metaData.getFailedItems()
+
+	c.Assert(failedItems, DeepEquals, []string{spec1Rel + ":13"})
+}
+
 func (s *MySuite) TestAddSpecPreHookFailedMetadata(c *C) {
 	spec1Rel := filepath.Join("specs", "example1.spec")
 	spec1Abs := filepath.Join(config.ProjectRoot, spec1Rel)
@@ -210,6 +247,22 @@ func (s *MySuite) TestGetRelativePath(c *C) {
 	path := util.RelPathToProjectRoot(spec1Abs)
 
 	c.Assert(path, Equals, spec1Rel)
+}
+
+func (s *MySuite) TestGetFailedItemsWithCustomSpecExtension(c *C) {
+	old := env.GaugeSpecFileExtensions
+	env.GaugeSpecFileExtensions = func() []string { return []string{".foo"} }
+	defer func() { env.GaugeSpecFileExtensions = old }()
+
+	spec1Rel := filepath.Join("specs", "example1.foo")
+	metaData := newFailedMetaData()
+	metaData.failedItemsMap[spec1Rel] = map[string]bool{
+		spec1Rel + ":13:2": true,
+	}
+
+	failedItems := metaData.getFailedItems()
+
+	c.Assert(failedItems, DeepEquals, []string{spec1Rel + ":13"})
 }
 
 func (s *MySuite) TestGetAllFailedItems(c *C) {

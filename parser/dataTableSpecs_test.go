@@ -207,11 +207,21 @@ func TestGetSpecsForDataTableRowsWithMixedScenarios(t *testing.T) {
 			if scn.SpecDataTableRow.IsInitialized() {
 				t.Errorf("Scenario with own table should not have spec table row when it doesn't use spec params")
 			}
+			if scn.SpecDataTableRowIndex != 0 {
+				t.Errorf("Scenario with own table should have SpecDataTableRowIndex=0 for first spec row, got %d", scn.SpecDataTableRowIndex)
+			}
 		}
 	}
 
 	if scenarioWithOwnTableCount != 2 {
 		t.Errorf("Expected 2 iterations of scenario with own table in first spec, got %d", scenarioWithOwnTableCount)
+	}
+
+	// Verify second spec's scenario also gets the correct SpecDataTableRowIndex
+	for _, scn := range secondSpec.Scenarios {
+		if scn.SpecDataTableRowIndex != 1 {
+			t.Errorf("Scenario in second spec should have SpecDataTableRowIndex=1, got %d", scn.SpecDataTableRowIndex)
+		}
 	}
 }
 

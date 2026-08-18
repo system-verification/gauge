@@ -13,11 +13,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/getgauge/common"
 	"github.com/getgauge/gauge-proto/go/gauge_messages"
 	"github.com/getgauge/gauge/config"
+	"github.com/getgauge/gauge/env"
 	"github.com/getgauge/gauge/execution/event"
 	"github.com/getgauge/gauge/execution/result"
 	"github.com/getgauge/gauge/gauge"
@@ -29,8 +31,6 @@ const (
 	failedFile         = "failures.json"
 	lastRunCmdFileName = "lastRunCmd.json"
 )
-
-var scenarioFailureRefPattern = regexp.MustCompile(`(?i)^(.+\.(?:spec|md)):(\d+)`)
 
 var failedMeta *failedMetadata
 
@@ -117,7 +117,7 @@ func ListenFailedScenarios(wg *sync.WaitGroup, specDirs []string) {
 
 func scenarioFailureRef(failedScenario string, sce *gauge.Scenario) string {
 	ref := fmt.Sprintf("%s:%d", failedScenario, sce.Span.Start)
-	if sce.SpecDataTableRow.IsInitialized() {
+	if sce.SpecDataTableRow.IsInitialized() || sce.ScenarioDataTableRow.IsInitialized() {
 		ref += fmt.Sprintf(":%d", sce.SpecDataTableRowIndex)
 	}
 	if sce.ScenarioDataTableRow.IsInitialized() {
@@ -127,7 +127,14 @@ func scenarioFailureRef(failedScenario string, sce *gauge.Scenario) string {
 }
 
 func scenarioFailureRefForOutput(ref string) string {
-	if matches := scenarioFailureRefPattern.FindStringSubmatch(ref); len(matches) == 3 {
+	exts := env.GaugeSpecFileExtensions()
+	escaped := make([]string, len(exts))
+	for i, ext := range exts {
+		escaped[i] = regexp.QuoteMeta(ext)
+	}
+	pattern := fmt.Sprintf(`(?i)^(.+(?:%s)):(\d+)`, strings.Join(escaped, "|"))
+	re := regexp.MustCompile(pattern)
+	if matches := re.FindStringSubmatch(ref); len(matches) == 3 {
 		return fmt.Sprintf("%s:%s", matches[1], matches[2])
 	}
 	return ref
