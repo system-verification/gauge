@@ -14,7 +14,6 @@ import (
 	"github.com/getgauge/common"
 	"github.com/getgauge/gauge-proto/go/gauge_messages"
 	"github.com/getgauge/gauge/config"
-	"github.com/getgauge/gauge/env"
 	"github.com/getgauge/gauge/execution/result"
 	"github.com/getgauge/gauge/gauge"
 	"github.com/getgauge/gauge/util"
@@ -60,7 +59,7 @@ func (s *MySuite) TestGetScenarioFailedMetadata(c *C) {
 	prepareScenarioFailedMetadata(sr1, sce, &gauge_messages.ExecutionInfo{CurrentSpec: &gauge_messages.SpecInfo{FileName: spec1Abs}})
 
 	c.Assert(len(failedMeta.failedItemsMap[spec1Abs]), Equals, 1)
-	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":2"], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][failureKey{filePath: spec1Rel, line: 2}], Equals, true)
 }
 
 func (s *MySuite) TestScenarioPassingOnRetryRemovesFailedMetadata(c *C) {
@@ -72,7 +71,7 @@ func (s *MySuite) TestScenarioPassingOnRetryRemovesFailedMetadata(c *C) {
 	passedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_PASSED}}
 
 	prepareScenarioFailedMetadata(failedResult, sce, execInfo)
-	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":2"], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][failureKey{filePath: spec1Rel, line: 2}], Equals, true)
 
 	prepareScenarioFailedMetadata(passedResult, sce, execInfo)
 	_, exists := failedMeta.failedItemsMap[spec1Abs]
@@ -98,10 +97,10 @@ func (s *MySuite) TestPassingTableRowDoesNotRemoveFailedTableRowMetadata(c *C) {
 	passedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_PASSED}}
 
 	prepareScenarioFailedMetadata(failedResult, failedScenario, execInfo)
-	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":13:2"], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][failureKey{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 2}], Equals, true)
 
 	prepareScenarioFailedMetadata(passedResult, passedScenario, execInfo)
-	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":13:2"], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][failureKey{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 2}], Equals, true)
 }
 
 func (s *MySuite) TestScenarioFailureRefWithScenarioDataTableRow(c *C) {
@@ -112,9 +111,14 @@ func (s *MySuite) TestScenarioFailureRefWithScenarioDataTableRow(c *C) {
 		ScenarioDataTableRowIndex: 3,
 	}
 
-	ref := scenarioFailureRef("specs/example.spec", sce)
+	key := newScenarioFailureKey("specs/example.spec", sce)
 
-	c.Assert(ref, Equals, "specs/example.spec:5:0:3")
+	c.Assert(key.filePath, Equals, "specs/example.spec")
+	c.Assert(key.line, Equals, 5)
+	c.Assert(key.hasSpecDataTableRow, Equals, true)
+	c.Assert(key.specDataTableRow, Equals, 0)
+	c.Assert(key.hasScenarioDataTableRow, Equals, true)
+	c.Assert(key.scenarioDataTableRow, Equals, 3)
 }
 
 func (s *MySuite) TestScenarioFailureRefWithBothDataTableRows(c *C) {
@@ -128,9 +132,14 @@ func (s *MySuite) TestScenarioFailureRefWithBothDataTableRows(c *C) {
 		ScenarioDataTableRowIndex: 1,
 	}
 
-	ref := scenarioFailureRef("specs/example.spec", sce)
+	key := newScenarioFailureKey("specs/example.spec", sce)
 
-	c.Assert(ref, Equals, "specs/example.spec:5:2:1")
+	c.Assert(key.filePath, Equals, "specs/example.spec")
+	c.Assert(key.line, Equals, 5)
+	c.Assert(key.hasSpecDataTableRow, Equals, true)
+	c.Assert(key.specDataTableRow, Equals, 2)
+	c.Assert(key.hasScenarioDataTableRow, Equals, true)
+	c.Assert(key.scenarioDataTableRow, Equals, 1)
 }
 
 func (s *MySuite) TestSameTableRowPassingOnRetryRemovesFailedMetadata(c *C) {
@@ -147,7 +156,7 @@ func (s *MySuite) TestSameTableRowPassingOnRetryRemovesFailedMetadata(c *C) {
 	passedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_PASSED}}
 
 	prepareScenarioFailedMetadata(failedResult, sce, execInfo)
-	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":13:2"], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][failureKey{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 2}], Equals, true)
 
 	prepareScenarioFailedMetadata(passedResult, sce, execInfo)
 	_, exists := failedMeta.failedItemsMap[spec1Abs]
@@ -157,9 +166,9 @@ func (s *MySuite) TestSameTableRowPassingOnRetryRemovesFailedMetadata(c *C) {
 func (s *MySuite) TestGetFailedItemsUsesFileLineForTableDrivenScenarios(c *C) {
 	spec1Rel := filepath.Join("specs", "example1.spec")
 	metaData := newFailedMetaData()
-	metaData.failedItemsMap[spec1Rel] = map[string]bool{
-		spec1Rel + ":13:2":   true,
-		spec1Rel + ":13:4:1": true,
+	metaData.failedItemsMap[spec1Rel] = map[failureKey]bool{
+		{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 2}:                                                                    true,
+		{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 4, hasScenarioDataTableRow: true, scenarioDataTableRow: 1}: true,
 	}
 
 	failedItems := metaData.getFailedItems()
@@ -183,20 +192,20 @@ func (s *MySuite) TestScenarioFailureRefDistinguishesSpecRowsForNestedTable(c *C
 		ScenarioDataTableRowIndex: 1,
 	}
 
-	ref0 := scenarioFailureRef("specs/example.spec", sce0)
-	ref1 := scenarioFailureRef("specs/example.spec", sce1)
+	key0 := newScenarioFailureKey("specs/example.spec", sce0)
+	key1 := newScenarioFailureKey("specs/example.spec", sce1)
 
-	c.Assert(ref0, Equals, "specs/example.spec:13:0:1")
-	c.Assert(ref1, Equals, "specs/example.spec:13:1:1")
-	c.Assert(ref0, Not(Equals), ref1)
+	c.Assert(key0, Not(Equals), key1)
+	c.Assert(key0.outputRef(), Equals, "specs/example.spec:13")
+	c.Assert(key1.outputRef(), Equals, "specs/example.spec:13")
 }
 
 func (s *MySuite) TestGetFailedItemsDeduplicatesNestedTableScenarios(c *C) {
 	spec1Rel := filepath.Join("specs", "example1.spec")
 	metaData := newFailedMetaData()
-	metaData.failedItemsMap[spec1Rel] = map[string]bool{
-		spec1Rel + ":13:0:1": true,
-		spec1Rel + ":13:1:1": true,
+	metaData.failedItemsMap[spec1Rel] = map[failureKey]bool{
+		{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 0, hasScenarioDataTableRow: true, scenarioDataTableRow: 1}: true,
+		{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 1, hasScenarioDataTableRow: true, scenarioDataTableRow: 1}: true,
 	}
 
 	failedItems := metaData.getFailedItems()
@@ -212,7 +221,7 @@ func (s *MySuite) TestAddSpecPreHookFailedMetadata(c *C) {
 	addFailedMetadata(spec1, []string{}, addSpecFailedMetadata)
 
 	c.Assert(len(failedMeta.failedItemsMap[spec1Rel]), Equals, 1)
-	c.Assert(failedMeta.failedItemsMap[spec1Rel][spec1Rel], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Rel][failureKey{filePath: spec1Rel}], Equals, true)
 }
 
 func (s *MySuite) TestAddSpecPostHookFailedMetadata(c *C) {
@@ -223,21 +232,21 @@ func (s *MySuite) TestAddSpecPostHookFailedMetadata(c *C) {
 	addFailedMetadata(spec1, []string{}, addSpecFailedMetadata)
 
 	c.Assert(len(failedMeta.failedItemsMap[spec1Rel]), Equals, 1)
-	c.Assert(failedMeta.failedItemsMap[spec1Rel][spec1Rel], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Rel][failureKey{filePath: spec1Rel}], Equals, true)
 }
 
 func (s *MySuite) TestAddSpecFailedMetadataOverwritesPreviouslyAddedValues(c *C) {
 	spec1Rel := filepath.Join("specs", "example1.spec")
 	spec1Abs := filepath.Join(config.ProjectRoot, spec1Rel)
 	spec1 := &result.SpecResult{ProtoSpec: &gauge_messages.ProtoSpec{PreHookFailures: []*gauge_messages.ProtoHookFailure{{ErrorMessage: "error"}}, FileName: spec1Abs}}
-	failedMeta.failedItemsMap[spec1Rel] = make(map[string]bool)
-	failedMeta.failedItemsMap[spec1Rel]["scn1"] = true
-	failedMeta.failedItemsMap[spec1Rel]["scn2"] = true
+	failedMeta.failedItemsMap[spec1Rel] = make(map[failureKey]bool)
+	failedMeta.failedItemsMap[spec1Rel][failureKey{filePath: spec1Rel, line: 1}] = true
+	failedMeta.failedItemsMap[spec1Rel][failureKey{filePath: spec1Rel, line: 2}] = true
 
 	addSpecFailedMetadata(spec1, []string{})
 
 	c.Assert(len(failedMeta.failedItemsMap[spec1Rel]), Equals, 1)
-	c.Assert(failedMeta.failedItemsMap[spec1Rel][spec1Rel], Equals, true)
+	c.Assert(failedMeta.failedItemsMap[spec1Rel][failureKey{filePath: spec1Rel}], Equals, true)
 }
 
 func (s *MySuite) TestGetRelativePath(c *C) {
@@ -250,14 +259,10 @@ func (s *MySuite) TestGetRelativePath(c *C) {
 }
 
 func (s *MySuite) TestGetFailedItemsWithCustomSpecExtension(c *C) {
-	old := env.GaugeSpecFileExtensions
-	env.GaugeSpecFileExtensions = func() []string { return []string{".foo"} }
-	defer func() { env.GaugeSpecFileExtensions = old }()
-
 	spec1Rel := filepath.Join("specs", "example1.foo")
 	metaData := newFailedMetaData()
-	metaData.failedItemsMap[spec1Rel] = map[string]bool{
-		spec1Rel + ":13:2": true,
+	metaData.failedItemsMap[spec1Rel] = map[failureKey]bool{
+		{filePath: spec1Rel, line: 13, hasSpecDataTableRow: true, specDataTableRow: 2}: true,
 	}
 
 	failedItems := metaData.getFailedItems()
@@ -269,11 +274,11 @@ func (s *MySuite) TestGetAllFailedItems(c *C) {
 	spec1Rel := filepath.Join("specs", "example1.spec")
 	spec2Rel := filepath.Join("specs", "example2.spec")
 	metaData := newFailedMetaData()
-	metaData.failedItemsMap[spec1Rel] = make(map[string]bool)
-	metaData.failedItemsMap[spec2Rel] = make(map[string]bool)
-	metaData.failedItemsMap[spec1Rel]["scn1"] = true
-	metaData.failedItemsMap[spec1Rel]["scn2"] = true
-	metaData.failedItemsMap[spec2Rel]["scn3"] = true
+	metaData.failedItemsMap[spec1Rel] = make(map[failureKey]bool)
+	metaData.failedItemsMap[spec2Rel] = make(map[failureKey]bool)
+	metaData.failedItemsMap[spec1Rel][failureKey{filePath: "scn1"}] = true
+	metaData.failedItemsMap[spec1Rel][failureKey{filePath: "scn2"}] = true
+	metaData.failedItemsMap[spec2Rel][failureKey{filePath: "scn3"}] = true
 
 	failedItems := metaData.getFailedItems()
 	sort.Strings(failedItems)
