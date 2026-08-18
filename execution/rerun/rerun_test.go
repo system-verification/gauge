@@ -78,6 +78,95 @@ func (s *MySuite) TestScenarioPassingOnRetryRemovesFailedMetadata(c *C) {
 	c.Assert(exists, Equals, false)
 }
 
+func (s *MySuite) TestPassingTableRowDoesNotRemoveFailedTableRowMetadata(c *C) {
+	spec1Rel := filepath.Join("specs", "example1.spec")
+	spec1Abs := filepath.Join(config.ProjectRoot, spec1Rel)
+	specTableRow := *gauge.NewTable([]string{"Word"}, [][]gauge.TableCell{{{Value: "Snap", CellType: gauge.Static}}}, 0)
+	execInfo := &gauge_messages.ExecutionInfo{CurrentSpec: &gauge_messages.SpecInfo{FileName: spec1Abs}}
+	failedScenario := &gauge.Scenario{
+		Span:                  &gauge.Span{Start: 13},
+		SpecDataTableRow:      specTableRow,
+		SpecDataTableRowIndex: 2,
+	}
+	passedScenario := &gauge.Scenario{
+		Span:                  &gauge.Span{Start: 13},
+		SpecDataTableRow:      specTableRow,
+		SpecDataTableRowIndex: 3,
+	}
+	failedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_FAILED}}
+	passedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_PASSED}}
+
+	prepareScenarioFailedMetadata(failedResult, failedScenario, execInfo)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":13:2"], Equals, true)
+
+	prepareScenarioFailedMetadata(passedResult, passedScenario, execInfo)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":13:2"], Equals, true)
+}
+
+func (s *MySuite) TestScenarioFailureRefWithScenarioDataTableRow(c *C) {
+	scenarioTableRow := *gauge.NewTable([]string{"Color"}, [][]gauge.TableCell{{{Value: "Red", CellType: gauge.Static}}}, 0)
+	sce := &gauge.Scenario{
+		Span:                      &gauge.Span{Start: 5},
+		ScenarioDataTableRow:      scenarioTableRow,
+		ScenarioDataTableRowIndex: 3,
+	}
+
+	ref := scenarioFailureRef("specs/example.spec", sce)
+
+	c.Assert(ref, Equals, "specs/example.spec:5:3")
+}
+
+func (s *MySuite) TestScenarioFailureRefWithBothDataTableRows(c *C) {
+	specTableRow := *gauge.NewTable([]string{"Word"}, [][]gauge.TableCell{{{Value: "Snap", CellType: gauge.Static}}}, 0)
+	scenarioTableRow := *gauge.NewTable([]string{"Color"}, [][]gauge.TableCell{{{Value: "Red", CellType: gauge.Static}}}, 0)
+	sce := &gauge.Scenario{
+		Span:                      &gauge.Span{Start: 5},
+		SpecDataTableRow:          specTableRow,
+		SpecDataTableRowIndex:     2,
+		ScenarioDataTableRow:      scenarioTableRow,
+		ScenarioDataTableRowIndex: 1,
+	}
+
+	ref := scenarioFailureRef("specs/example.spec", sce)
+
+	c.Assert(ref, Equals, "specs/example.spec:5:2:1")
+}
+
+func (s *MySuite) TestSameTableRowPassingOnRetryRemovesFailedMetadata(c *C) {
+	spec1Rel := filepath.Join("specs", "example1.spec")
+	spec1Abs := filepath.Join(config.ProjectRoot, spec1Rel)
+	specTableRow := *gauge.NewTable([]string{"Word"}, [][]gauge.TableCell{{{Value: "Snap", CellType: gauge.Static}}}, 0)
+	execInfo := &gauge_messages.ExecutionInfo{CurrentSpec: &gauge_messages.SpecInfo{FileName: spec1Abs}}
+	sce := &gauge.Scenario{
+		Span:                  &gauge.Span{Start: 13},
+		SpecDataTableRow:      specTableRow,
+		SpecDataTableRowIndex: 2,
+	}
+	failedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_FAILED}}
+	passedResult := &result.ScenarioResult{ProtoScenario: &gauge_messages.ProtoScenario{ExecutionStatus: gauge_messages.ExecutionStatus_PASSED}}
+
+	prepareScenarioFailedMetadata(failedResult, sce, execInfo)
+	c.Assert(failedMeta.failedItemsMap[spec1Abs][spec1Rel+":13:2"], Equals, true)
+
+	prepareScenarioFailedMetadata(passedResult, sce, execInfo)
+	_, exists := failedMeta.failedItemsMap[spec1Abs]
+	c.Assert(exists, Equals, false)
+}
+
+func (s *MySuite) TestGetFailedItemsUsesFileLineForTableDrivenScenarios(c *C) {
+	spec1Rel := filepath.Join("specs", "example1.spec")
+	metaData := newFailedMetaData()
+	metaData.failedItemsMap[spec1Rel] = map[string]bool{
+		spec1Rel + ":13:2":   true,
+		spec1Rel + ":13:4:1": true,
+	}
+
+	failedItems := metaData.getFailedItems()
+	sort.Strings(failedItems)
+
+	c.Assert(failedItems, DeepEquals, []string{spec1Rel + ":13"})
+}
+
 func (s *MySuite) TestAddSpecPreHookFailedMetadata(c *C) {
 	spec1Rel := filepath.Join("specs", "example1.spec")
 	spec1Abs := filepath.Join(config.ProjectRoot, spec1Rel)

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 
 	"github.com/getgauge/common"
@@ -28,6 +29,8 @@ const (
 	failedFile         = "failures.json"
 	lastRunCmdFileName = "lastRunCmd.json"
 )
+
+var scenarioFailureRefPattern = regexp.MustCompile(`(?i)^(.+\.(?:spec|md)):(\d+)`)
 
 var failedMeta *failedMetadata
 
@@ -46,10 +49,16 @@ func (m *failedMetadata) args() []string {
 }
 
 func (m *failedMetadata) getFailedItems() []string {
+	seen := make(map[string]bool)
 	failedItems := []string{}
 	for _, v := range m.failedItemsMap {
 		for k := range v {
-			failedItems = append(failedItems, k)
+			outputRef := scenarioFailureRefForOutput(k)
+			if seen[outputRef] {
+				continue
+			}
+			seen[outputRef] = true
+			failedItems = append(failedItems, outputRef)
 		}
 	}
 	return failedItems
@@ -106,10 +115,28 @@ func ListenFailedScenarios(wg *sync.WaitGroup, specDirs []string) {
 	}()
 }
 
+func scenarioFailureRef(failedScenario string, sce *gauge.Scenario) string {
+	ref := fmt.Sprintf("%s:%d", failedScenario, sce.Span.Start)
+	if sce.SpecDataTableRow.IsInitialized() {
+		ref += fmt.Sprintf(":%d", sce.SpecDataTableRowIndex)
+	}
+	if sce.ScenarioDataTableRow.IsInitialized() {
+		ref += fmt.Sprintf(":%d", sce.ScenarioDataTableRowIndex)
+	}
+	return ref
+}
+
+func scenarioFailureRefForOutput(ref string) string {
+	if matches := scenarioFailureRefPattern.FindStringSubmatch(ref); len(matches) == 3 {
+		return fmt.Sprintf("%s:%s", matches[1], matches[2])
+	}
+	return ref
+}
+
 func prepareScenarioFailedMetadata(res *result.ScenarioResult, sce *gauge.Scenario, executionInfo *gauge_messages.ExecutionInfo) {
 	specPath := executionInfo.GetCurrentSpec().GetFileName()
 	failedScenario := util.RelPathToProjectRoot(specPath)
-	scenarioRef := fmt.Sprintf("%s:%v", failedScenario, sce.Span.Start)
+	scenarioRef := scenarioFailureRef(failedScenario, sce)
 	if res.GetFailed() {
 		failedMeta.addFailedItem(specPath, scenarioRef)
 		return
