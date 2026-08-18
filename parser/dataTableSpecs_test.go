@@ -261,7 +261,7 @@ func TestCreateSpecsForTableRows(t *testing.T) {
 			Heading: &gauge.Heading{},
 			Scenarios: []*gauge.Scenario{{Steps: []*gauge.Step{{Args: []*gauge.StepArg{{Value: "header", ArgType: gauge.Dynamic, Name: "header"}}}}, SpecDataTableRow: *gauge.NewTable([]string{"header"}, [][]gauge.TableCell{
 				{{Value: "row1", CellType: gauge.Static}},
-			}, 0), SpecDataTableRowIndex: 0}},
+			}, 0), HasSpecDataTable: true, SpecDataTableRowIndex: 0}},
 			DataTable: gauge.DataTable{Table: gauge.NewTable([]string{"header"}, [][]gauge.TableCell{
 				{{Value: "row1", CellType: gauge.Static}},
 			}, 0)},
@@ -272,7 +272,7 @@ func TestCreateSpecsForTableRows(t *testing.T) {
 				}, 0)},
 				&gauge.Scenario{Steps: []*gauge.Step{{Args: []*gauge.StepArg{{Value: "header", ArgType: gauge.Dynamic, Name: "header"}}}}, SpecDataTableRow: *gauge.NewTable([]string{"header"}, [][]gauge.TableCell{
 					{{Value: "row1", CellType: gauge.Static}},
-				}, 0), SpecDataTableRowIndex: 0},
+				}, 0), HasSpecDataTable: true, SpecDataTableRowIndex: 0},
 			},
 			TearDownSteps: []*gauge.Step{{Args: []*gauge.StepArg{{Value: "abc", ArgType: gauge.Static}}}},
 		},
@@ -280,7 +280,7 @@ func TestCreateSpecsForTableRows(t *testing.T) {
 			Heading: &gauge.Heading{},
 			Scenarios: []*gauge.Scenario{{Steps: []*gauge.Step{{Args: []*gauge.StepArg{{Value: "header", ArgType: gauge.Dynamic, Name: "header"}}}}, SpecDataTableRow: *gauge.NewTable([]string{"header"}, [][]gauge.TableCell{
 				{{Value: "row2", CellType: gauge.Static}},
-			}, 0), SpecDataTableRowIndex: 1}},
+			}, 0), HasSpecDataTable: true, SpecDataTableRowIndex: 1}},
 			DataTable: gauge.DataTable{Table: gauge.NewTable([]string{"header"}, [][]gauge.TableCell{
 				{{Value: "row2", CellType: gauge.Static}},
 			}, 0)},
@@ -291,7 +291,7 @@ func TestCreateSpecsForTableRows(t *testing.T) {
 				}, 0)},
 				&gauge.Scenario{Steps: []*gauge.Step{{Args: []*gauge.StepArg{{Value: "header", ArgType: gauge.Dynamic, Name: "header"}}}}, SpecDataTableRow: *gauge.NewTable([]string{"header"}, [][]gauge.TableCell{
 					{{Value: "row2", CellType: gauge.Static}},
-				}, 0), SpecDataTableRowIndex: 1},
+				}, 0), HasSpecDataTable: true, SpecDataTableRowIndex: 1},
 			},
 			TearDownSteps: []*gauge.Step{{Args: []*gauge.StepArg{{Value: "abc", ArgType: gauge.Static}}}},
 		},

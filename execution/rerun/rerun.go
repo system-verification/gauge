@@ -46,7 +46,7 @@ type failureKey struct {
 
 func newScenarioFailureKey(filePath string, sce *gauge.Scenario) failureKey {
 	k := failureKey{filePath: filePath, line: sce.Span.Start}
-	if sce.SpecDataTableRow.IsInitialized() || sce.ScenarioDataTableRow.IsInitialized() {
+	if sce.HasSpecDataTable {
 		k.hasSpecDataTableRow = true
 		k.specDataTableRow = sce.SpecDataTableRowIndex
 	}

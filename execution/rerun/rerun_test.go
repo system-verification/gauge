@@ -85,11 +85,13 @@ func (s *MySuite) TestPassingTableRowDoesNotRemoveFailedTableRowMetadata(c *C) {
 	execInfo := &gauge_messages.ExecutionInfo{CurrentSpec: &gauge_messages.SpecInfo{FileName: spec1Abs}}
 	failedScenario := &gauge.Scenario{
 		Span:                  &gauge.Span{Start: 13},
+		HasSpecDataTable:      true,
 		SpecDataTableRow:      specTableRow,
 		SpecDataTableRowIndex: 2,
 	}
 	passedScenario := &gauge.Scenario{
 		Span:                  &gauge.Span{Start: 13},
+		HasSpecDataTable:      true,
 		SpecDataTableRow:      specTableRow,
 		SpecDataTableRowIndex: 3,
 	}
@@ -115,8 +117,7 @@ func (s *MySuite) TestScenarioFailureRefWithScenarioDataTableRow(c *C) {
 
 	c.Assert(key.filePath, Equals, "specs/example.spec")
 	c.Assert(key.line, Equals, 5)
-	c.Assert(key.hasSpecDataTableRow, Equals, true)
-	c.Assert(key.specDataTableRow, Equals, 0)
+	c.Assert(key.hasSpecDataTableRow, Equals, false)
 	c.Assert(key.hasScenarioDataTableRow, Equals, true)
 	c.Assert(key.scenarioDataTableRow, Equals, 3)
 }
@@ -126,6 +127,7 @@ func (s *MySuite) TestScenarioFailureRefWithBothDataTableRows(c *C) {
 	scenarioTableRow := *gauge.NewTable([]string{"Color"}, [][]gauge.TableCell{{{Value: "Red", CellType: gauge.Static}}}, 0)
 	sce := &gauge.Scenario{
 		Span:                      &gauge.Span{Start: 5},
+		HasSpecDataTable:          true,
 		SpecDataTableRow:          specTableRow,
 		SpecDataTableRowIndex:     2,
 		ScenarioDataTableRow:      scenarioTableRow,
@@ -149,6 +151,7 @@ func (s *MySuite) TestSameTableRowPassingOnRetryRemovesFailedMetadata(c *C) {
 	execInfo := &gauge_messages.ExecutionInfo{CurrentSpec: &gauge_messages.SpecInfo{FileName: spec1Abs}}
 	sce := &gauge.Scenario{
 		Span:                  &gauge.Span{Start: 13},
+		HasSpecDataTable:      true,
 		SpecDataTableRow:      specTableRow,
 		SpecDataTableRowIndex: 2,
 	}
@@ -181,12 +184,14 @@ func (s *MySuite) TestScenarioFailureRefDistinguishesSpecRowsForNestedTable(c *C
 	scenarioTableRow := *gauge.NewTable([]string{"Color"}, [][]gauge.TableCell{{{Value: "Red", CellType: gauge.Static}}}, 0)
 	sce0 := &gauge.Scenario{
 		Span:                      &gauge.Span{Start: 13},
+		HasSpecDataTable:          true,
 		SpecDataTableRowIndex:     0,
 		ScenarioDataTableRow:      scenarioTableRow,
 		ScenarioDataTableRowIndex: 1,
 	}
 	sce1 := &gauge.Scenario{
 		Span:                      &gauge.Span{Start: 13},
+		HasSpecDataTable:          true,
 		SpecDataTableRowIndex:     1,
 		ScenarioDataTableRow:      scenarioTableRow,
 		ScenarioDataTableRowIndex: 1,

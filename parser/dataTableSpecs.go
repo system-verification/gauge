@@ -85,6 +85,7 @@ func copyScenarios(scenarios []*gauge.Scenario, table gauge.Table, i int, errMap
 			Span:     scn.Span,
 		}
 		if table.IsInitialized() {
+			newScn.HasSpecDataTable = true
 			newScn.SpecDataTableRowIndex = i
 		}
 		if assignSpecTable {
